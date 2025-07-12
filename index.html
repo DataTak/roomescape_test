@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>방탈출: 안전한 물놀이 교실</title>
+    <style>
+        /* CSS 스타일은 이전과 동일하므로 생략하지 않고 모두 포함합니다. */
+        body, html { margin: 0; padding: 0; overflow: hidden; font-family: 'Malgun Gothic', sans-serif; background-color: #333; }
+        .hidden { display: none !important; }
+        .screen-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.8); display: flex; justify-content: center; align-items: center; z-index: 200; }
+        .content-box { background-color: white; padding: 30px 50px; border-radius: 15px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); max-width: 500px; }
+        #start-form h1 { color: #007bff; margin-top: 0; }
+        #start-form input { display: block; width: 250px; padding: 12px; margin: 10px auto; border: 1px solid #ccc; border-radius: 5px; font-size: 1em; }
+        #start-button { margin-top: 20px; padding: 12px 30px; border: none; background-color: #28a745; color: white; border-radius: 5px; cursor: pointer; font-size: 1.2em; font-weight: bold; transition: background-color 0.2s; }
+        #start-button:hover { background-color: #218838; }
+        #results-content h2 { color: #dc3545; }
+        #results-content p { font-size: 1.1em; line-height: 1.6; }
+        #feedback-text { width: 90%; padding: 10px; margin-top: 10px; font-size: 1em; border: 1px solid #ccc; border-radius: 5px; resize: vertical; }
+        #results-buttons { margin-top: 20px; }
+        #submit-results-button, #play-again-button { padding: 10px 20px; font-size: 1em; border-radius: 5px; border: none; color: white; cursor: pointer; margin: 0 5px; }
+        #submit-results-button { background-color: #007bff; }
+        #play-again-button { background-color: #6c757d; }
+        #submit-results-button:disabled { background-color: #aaa; cursor: not-allowed; }
+        #timer-display { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background-color: rgba(0, 0, 0, 0.7); color: white; padding: 10px 20px; border-radius: 10px; font-size: 1.2em; font-weight: bold; z-index: 150; }
+        #game-container { position: relative; max-width: 1280px; margin: auto; }
+        #room-background { width: 100%; display: block; }
+        .clickable-object { position: absolute; cursor: pointer; transition: background-color 0.2s; }
+        .clickable-object:hover { background-color: rgba(255, 255, 0, 0.3); }
+        #obj-monitor { top: 38%; left: 15%; width: 13%; height: 20%; }
+        #obj-speaker { top: 15%; left: 25%; width: 5%; height: 12%; }
+        #obj-clock { top: 10%; left: 92%; width: 5%; height: 10%; }
+        #obj-pencil-case { top: 72%; left: 60%; width: 14%; height: 10%; }
+        #obj-door { top: 25%; left: 89%; width: 11%; height: 60%; }
+        #modal-content { background-color: white; padding: 20px 40px; border-radius: 10px; min-width: 300px; max-width: 90%; text-align: center; }
+        #modal-title { margin-top: 0; }
+        #interactive-content { margin: 20px 0; }
+        #modal-close-button { margin-top: 10px; padding: 10px 20px; border: none; background-color: #007bff; color: white; border-radius: 5px; cursor: pointer; }
+        .puzzle-input { padding: 10px; font-size: 1.2em; text-align: center; width: 100px; margin-right: 10px; }
+        .puzzle-button { padding: 10px 15px; font-size: 1.1em; }
+        #memory-game-board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .card { width: 80px; height: 80px; perspective: 1000px; cursor: pointer; }
+        .card-inner { position: relative; width: 100%; height: 100%; transition: transform 0.6s; transform-style: preserve-3d; }
+        .card.flipped .card-inner { transform: rotateY(180deg); }
+        .card-front, .card-back { position: absolute; width: 100%; height: 100%; -webkit-backface-visibility: hidden; backface-visibility: hidden; display: flex; justify-content: center; align-items: center; border-radius: 5px; }
+        .card-front { background: #4a90e2; font-size: 2em; }
+        .card-back { background: #f5a623; color: white; font-size: 2.5em; transform: rotateY(180deg); }
+    </style>
+</head>
+<body>
+    <!-- HTML 구조는 이전과 동일 -->
+    <div id="start-screen" class="screen-overlay">
+        <div id="start-form" class="content-box"><h1>안전한 물놀이 방탈출</h1><input type="text" id="input-grade" placeholder="학년"><input type="text" id="input-class" placeholder="반"><input type="text" id="input-name" placeholder="이름"><button id="start-button">게임 시작</button></div>
+    </div>
+    <div id="timer-display" class="hidden">소요 시간: 00:00</div>
+    <div id="game-container" class="hidden"><img src="https://i.ibb.co/fVCPV3jd/Whisk-8ad83bd02f.jpg" alt="교실 배경" id="room-background"><div class="clickable-object" id="obj-monitor" title="모니터"></div><div class="clickable-object" id="obj-speaker" title="스피커"></div><div class="clickable-object" id="obj-clock" title="시계"></div><div class="clickable-object" id="obj-pencil-case" title="필통"></div><div class="clickable-object" id="obj-door" title="교실 문"></div></div>
+    <div id="modal" class="screen-overlay hidden"><div id="modal-content" class="content-box"><h3 id="modal-title"></h3><p id="modal-text"></p><div id="interactive-content"></div><button id="modal-close-button">닫기</button></div></div>
+    <div id="results-screen" class="screen-overlay hidden"><div id="results-content" class="content-box"><h2>🎉 탈출 성공! 🎉</h2><p>참가자: <strong id="result-grade"></strong>학년 <strong id="result-class"></strong>반 <strong id="result-name"></strong></p><p>소요 시간: <strong id="result-time"></strong></p><textarea id="feedback-text" rows="4" placeholder="게임에 대한 소감을 자유롭게 남겨주세요..."></textarea><div id="results-buttons"><button id="submit-results-button">제출하기</button><button id="play-again-button">다시하기</button></div></div></div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        // ==========================================================
+        // 여기에 1단계에서 복사한 웹 앱 URL을 붙여넣으세요!
+        // ==========================================================
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzpWuzHEcJvfmqlZsNCViUaFazS_cBN6V1wH826l3Z8MNlH1jpcuzJ0r1SkQ9rx35Ps/exec';
+        // ==========================================================
+
+
+        // --- 전역 변수 및 상태 ---
+        let userGrade, userClass, userName, finalTime;
+        let startTime, timerInterval;
+        const gameState = { passwordPart1: null, passwordPart2: null, isMemoryGameSolved: false };
+
+        // --- HTML 요소 가져오기 ---
+        const startScreen = document.getElementById('start-screen');
+        const gameContainer = document.getElementById('game-container');
+        const timerDisplay = document.getElementById('timer-display');
+        const modal = document.getElementById('modal');
+        const resultsScreen = document.getElementById('results-screen');
+        
+        // --- 이벤트 리스너 설정 ---
+        document.getElementById('start-button').addEventListener('click', startGame);
+        document.getElementById('obj-monitor').addEventListener('click', handleMonitor);
+        document.getElementById('obj-speaker').addEventListener('click', handleSpeaker);
+        document.getElementById('obj-clock').addEventListener('click', handleClock);
+        document.getElementById('obj-pencil-case').addEventListener('click', handlePencilCase);
+        document.getElementById('obj-door').addEventListener('click', handleDoor);
+        document.getElementById('modal-close-button').addEventListener('click', closeModal);
+        document.getElementById('submit-results-button').addEventListener('click', submitResults);
+        document.getElementById('play-again-button').addEventListener('click', () => location.reload());
+
+        function startGame() {
+            userGrade = document.getElementById('input-grade').value.trim();
+            userClass = document.getElementById('input-class').value.trim();
+            userName = document.getElementById('input-name').value.trim();
+            if (!userGrade || !userClass || !userName) { alert('학년, 반, 이름을 모두 입력해주세요!'); return; }
+            startScreen.classList.add('hidden');
+            gameContainer.classList.remove('hidden');
+            timerDisplay.classList.remove('hidden');
+            startTimer();
+        }
+
+        function startTimer() {
+            startTime = Date.now();
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        function updateTimer() {
+            const totalSeconds = Math.floor((Date.now() - startTime) / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            timerDisplay.textContent = `소요 시간: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function handleEscapeSuccess() {
+            clearInterval(timerInterval);
+            finalTime = timerDisplay.textContent.replace('소요 시간: ', '');
+            gameContainer.classList.add('hidden');
+            timerDisplay.classList.add('hidden');
+            document.getElementById('result-grade').textContent = userGrade;
+            document.getElementById('result-class').textContent = userClass;
+            document.getElementById('result-name').textContent = userName;
+            document.getElementById('result-time').textContent = finalTime;
+            resultsScreen.classList.remove('hidden');
+        }
+        
+        // ================== 데이터 제출 함수 (수정됨) ==================
+        function submitResults() {
+            const feedback = document.getElementById('feedback-text').value;
+            const submitButton = document.getElementById('submit-results-button');
+
+            if (SCRIPT_URL === '여기에_복사한_URL을_붙여넣으세요') {
+                alert('스크립트 URL이 설정되지 않았습니다. 관리자에게 문의하세요.');
+                return;
+            }
+
+            // 제출 중복 방지
+            submitButton.disabled = true;
+            submitButton.textContent = '제출 중...';
+
+            const resultData = {
+                grade: userGrade,
+                class: userClass,
+                name: userName,
+                time: finalTime,
+                feedback: feedback
+            };
+
+            // fetch API를 사용하여 Apps Script로 데이터 전송
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify(resultData),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.result === 'success') {
+                    alert('소중한 의견 감사합니다! 데이터가 성공적으로 제출되었습니다.');
+                    submitButton.textContent = '제출 완료';
+                } else {
+                    throw new Error(data.message || '알 수 없는 오류가 발생했습니다.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert(`데이터 제출에 실패했습니다. 인터넷 연결을 확인하거나 관리자에게 문의하세요.\n오류: ${error.message}`);
+                submitButton.disabled = false; // 실패 시 다시 시도할 수 있도록 버튼 활성화
+                submitButton.textContent = '제출하기';
+            });
+        }
+        // =============================================================
+
+        function handleDoor() {
+            if (!gameState.passwordPart1 || !gameState.passwordPart2) {
+                showModal('잠긴 문', '아직 모든 단서를 찾지 못했다. 비밀번호를 알아내야 한다.');
+                return;
+            }
+            showModal('탈출 시도', '네 자리 비밀번호를 입력하세요.');
+            const input = document.createElement('input');
+            input.type = 'text'; input.className = 'puzzle-input'; input.maxLength = 4;
+            input.placeholder = gameState.passwordPart1 + gameState.passwordPart2;
+            const button = document.createElement('button');
+            button.textContent = '탈출'; button.className = 'puzzle-button';
+            button.onclick = () => {
+                if (input.value === '2025') {
+                    closeModal();
+                    handleEscapeSuccess();
+                } else {
+                    alert("비밀번호가 틀렸습니다.");
+                }
+            };
+            const interactiveContent = document.getElementById('interactive-content');
+            interactiveContent.innerHTML = ''; interactiveContent.appendChild(input); interactiveContent.appendChild(button);
+            input.focus();
+        }
+        
+        // --- 나머지 함수들은 이전과 동일 (수정 불필요) ---
+        function handleSpeaker() { showModal('스피커', "스피커에서 작은 안내 음성이 들린다. '가장 큰 화면에 첫 번째 단서가 있습니다.'"); }
+        function handleMonitor() {
+            if (gameState.isMemoryGameSolved) { showModal('모니터', "이미 메모리 게임을 완료했다! 얻은 단서는 '물의 깊이'와 관련 있었다."); return; }
+            showModal('메모리 게임', '물놀이 안전 수칙과 관련된 카드를 맞춰보세요.');
+            startMemoryGame();
+        }
+        function handleClock() {
+            if (gameState.passwordPart1) { showModal('시계', "문제를 이미 풀었다. 얻은 단서는 '20'이었다."); return; }
+            showModal('시계 문제', "물놀이는 매시 정각부터 50분간 하고 10분간 휴식하는 것이 안전합니다. 오후 1시에 물놀이를 시작했다면, 두 번째 휴식 시간은 오후 2시 '몇 분'부터 시작될까요?");
+            const input = document.createElement('input'); input.type = 'number'; input.className = 'puzzle-input';
+            const button = document.createElement('button'); button.textContent = '확인'; button.className = 'puzzle-button';
+            button.onclick = () => {
+                if (input.value === '50') { alert("정답! 비밀번호의 첫 두 자리 '20'을 획득했습니다. (힌트: 50 - 30)"); gameState.passwordPart1 = '20'; closeModal(); } else { alert("틀렸습니다. 다시 생각해보세요."); }
+            };
+            const interactiveContent = document.getElementById('interactive-content');
+            interactiveContent.innerHTML = ''; interactiveContent.appendChild(input); interactiveContent.appendChild(button); input.focus();
+        }
+        function handlePencilCase() {
+            if (gameState.passwordPart2) { showModal('필통', "문제를 이미 풀었다. 얻은 단서는 '25'였다."); return; }
+            showModal('필통 문제', "물놀이 전 준비운동은 최소 5분 이상, 물에 들어가기 전 심장에서 먼 곳(다리, 팔, 얼굴, 가슴) 순서로 물을 적셔야 합니다. 이 두 숫자를 곱하면 얼마일까요?");
+            const input = document.createElement('input'); input.type = 'number'; input.className = 'puzzle-input';
+            const button = document.createElement('button'); button.textContent = '확인'; button.className = 'puzzle-button';
+            button.onclick = () => {
+                if (input.value === '25') { alert("정답! 비밀번호의 마지막 두 자리 '25'를 획득했습니다."); gameState.passwordPart2 = '25'; closeModal(); } else { alert("틀렸습니다. 다시 계산해보세요."); }
+            };
+            const interactiveContent = document.getElementById('interactive-content');
+            interactiveContent.innerHTML = ''; interactiveContent.appendChild(input); interactiveContent.appendChild(button); input.focus();
+        }
+        function showModal(title, text) {
+            document.getElementById('modal-title').textContent = title; document.getElementById('modal-text').textContent = text;
+            document.getElementById('interactive-content').innerHTML = ''; modal.classList.remove('hidden');
+        }
+        function closeModal() { modal.classList.add('hidden'); }
+        function startMemoryGame() {
+            const board = document.createElement('div'); board.id = 'memory-game-board';
+            document.getElementById('interactive-content').appendChild(board);
+            const items = ['🏊', '🌞', '튜브', '🦺', '🏊', '🌞', '튜브', '🦺'];
+            items.sort(() => 0.5 - Math.random()); let flippedCards = []; let matchedPairs = 0;
+            items.forEach(item => {
+                const card = document.createElement('div'); card.className = 'card'; card.dataset.item = item;
+                card.innerHTML = `<div class="card-inner"><div class="card-front">?</div><div class="card-back">${item}</div></div>`;
+                card.addEventListener('click', () => { if (flippedCards.length < 2 && !card.classList.contains('flipped')) { card.classList.add('flipped'); flippedCards.push(card); if (flippedCards.length === 2) setTimeout(checkMatch, 1000); } });
+                board.appendChild(card);
+            });
+            function checkMatch() {
+                const [card1, card2] = flippedCards;
+                if (card1.dataset.item === card2.dataset.item) {
+                    matchedPairs++;
+                    if (matchedPairs === items.length / 2) { setTimeout(() => { alert("성공! 중요한 정보를 얻었습니다: '깊은 물에 들어갈 때는 반드시 어른과 함께 가세요!'"); gameState.isMemoryGameSolved = true; closeModal(); }, 300); }
+                } else { card1.classList.remove('flipped'); card2.classList.remove('flipped'); }
+                flippedCards = [];
+            }
+        }
+    });
+    </script>
+</body>
+</html>
